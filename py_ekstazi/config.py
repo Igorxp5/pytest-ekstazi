@@ -1,6 +1,6 @@
 import json
 import pathlib
-
+import hashlib
 
 class InvalidConfigurationFile(ValueError):
     pass
@@ -52,13 +52,17 @@ class EkstaziConfiguration:
         if test_key in self._dependencies: 
             del self._dependencies[test_key]
     
-    def add_file_hash(self, file_name, file_hash):
-        """Add or update the hash value of a file
+    def add_file_hash(self, file_name):
+        """Add or update the hash value of a file. This function calculates SHA-1 hash of the file content.
         
         :param file_name Location of the file
         :param file_hash Hash value of the file content
         """
-        self._file_hashes[str(file_name)] = str(file_hash)
+        file_name = str(file_name)
+        if file_name not in self._file_hashes:
+            with open(file_name, 'rb') as file:
+                file_content = file.read()
+                self._file_hashes[file_name] = hashlib.sha1(file_content).hexdigest()
 
     def save(self):
         """Save the dependencies and file hashes into the configuration file"""

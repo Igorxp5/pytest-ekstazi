@@ -33,19 +33,24 @@ class EkstaziPytestPlugin:
         pyfuncitem.obj = tracer_wrapper
     
     def pytest_sessionfinish(self, session, exitstatus):
+        dependency_files = set()
         for test_key, tracer in self._tracers.items():
             test_location, test_name = EkstaziConfiguration.extract_test_from_key(test_key)
             results = tracer.results()
             self._configuration.remove_dependencies(test_location, test_name)
             calls = sorted(results.calledfuncs)
-            for filename, modulename, funcname in calls:    
+            for filename, _, funcname in calls:    
                 # ignore Python internal calls and the test itself
                 if all(not filename.startswith(path) for path in self._ignore_dirs) \
                         and filename != test_location and funcname != test_name:
                     filename = self._get_relative_file_path(filename)
                     self._configuration.add_test_dependency(test_location, test_name, filename)
+                    if filename not in dependency_files:
+                        self._configuration.add_file_hash(filename)
+                        # add file to a set, so we can avoid recalculate the hash for the same dependency
+                        dependency_files.add(filename)
         self._configuration.save()
-    
+
     @staticmethod
     def _get_relative_file_path(file_path):
         return pathlib.Path(file_path).relative_to(pathlib.Path.cwd())
