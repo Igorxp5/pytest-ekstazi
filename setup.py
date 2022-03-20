@@ -9,14 +9,14 @@ with open('README.md', 'r', encoding='utf-8') as file:
     long_description = file.read()
 
 setuptools.setup(
-    name='py-ekstazi',
+    name='pytest-ekstazi',
     version=__version__,
     author=__author__,
     description='Pytest plugin to select test using Ekstazi algorithm',
     long_description=long_description,
     long_description_content_type='text/markdown',
-    url='https://github.com/Igorxp5/py-ekstazi',
-    packages=['py_ekstazi'],
+    url='https://github.com/Igorxp5/pytest-ekstazi',
+    packages=['pytest_ekstazi'],
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
@@ -24,8 +24,8 @@ setuptools.setup(
         'Framework :: Pytest'
     ],
     entry_points={
-        'pytest11': ['py_ekstazi = py_ekstazi.plugin']
+        'pytest11': ['pytest_ekstazi = pytest_ekstazi.plugin']
     },
     install_requires=['pytest'],
-    python_requires='>=3.6',
+    python_requires='>=3.7',
 )
