@@ -1,6 +1,3 @@
-from itertools import product
-
-
 def test_insert_product():
     database = Database()
     product_id = database.insert_product(name='Product name', price=10.5, amount=10)
@@ -13,4 +10,3 @@ def test_insert_product():
     products = database.search_product_by_id(product_id)
     assert products, 'Product not found by ID'
 
-    
