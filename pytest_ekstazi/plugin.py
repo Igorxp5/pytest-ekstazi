@@ -20,6 +20,25 @@ class EkstaziPytestPlugin:
         self._tracers = dict()
         self._configuration = configuration
 
+    def pytest_collection_modifyitems(self, config, items):
+        skip = pytest.mark.skip(reason='The test dependencies was not changed since the last test execution')
+        dependencies_hashes = dict()
+        test_file_hashes = dict()
+        for item in items:
+            test_name = item.originalname
+            test_location = item.fspath
+            test_location = self._get_relative_file_path(test_location)
+            dependencies = self._configuration.get_test_dependencies(test_location, test_name)
+            if dependencies:
+                for dependency in dependencies:
+                    dependencies_hashes.setdefault(dependency, file_hash(dependency))
+
+            # if all dependencies are the same, the test case is skipped
+            if all(dependencies_hashes[d] == self._configuration.get_dependency_hash(d) for d in dependencies):
+                test_file_hashes.setdefault(test_location, file_hash(test_location))
+                if test_file_hashes[test_location] == self._configuration.get_test_file_hash(test_location):
+                    item.add_marker(skip)
+
     def pytest_pyfunc_call(self, pyfuncitem):
         test_name = pyfuncitem.originalname
         test_function = pyfuncitem.obj
@@ -42,6 +61,7 @@ class EkstaziPytestPlugin:
             test_location, test_name = EkstaziConfiguration.extract_test_from_key(test_key)
             results = tracer.results()
             self._configuration.remove_dependencies(test_location, test_name)
+            self._configuration.add_test_file_hash(test_location)
             self._configuration.set_test_dependencies_entry(test_location, test_name)
             calls = sorted(results.calledfuncs)
             for filename, _, funcname in calls:
@@ -52,26 +72,10 @@ class EkstaziPytestPlugin:
                     filename = self._get_relative_file_path(filename)
                     self._configuration.add_test_dependency(test_location, test_name, filename)
                     if filename not in dependency_files:
-                        self._configuration.add_file_hash(filename)
+                        self._configuration.add_dependency_hash(filename)
                         # add file to a set, so we can avoid recalculate the hash for the same dependency
                         dependency_files.add(filename)
         self._configuration.save()
-
-    def pytest_collection_modifyitems(self, config, items):
-        skip = pytest.mark.skip(reason='The test dependencies was not changed since the last test execution')
-        dependencies_hashes = dict()
-        for item in items:
-            test_name = item.originalname
-            test_location = item.fspath
-            test_location = self._get_relative_file_path(test_location)
-            dependencies = self._configuration.get_test_dependencies(test_location, test_name)
-            if dependencies:
-                for dependency in dependencies:
-                    dependencies_hashes.setdefault(dependency, file_hash(dependency))
-
-            # If all dependencies are the same, the test case is skipped
-            if all(dependencies_hashes[d] == self._configuration.get_file_hash(d) for d in dependencies):
-                item.add_marker(skip)
 
     @staticmethod
     def _get_relative_file_path(file_path):

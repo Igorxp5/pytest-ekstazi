@@ -23,20 +23,25 @@ class EkstaziConfiguration:
         """
         self._file_path = file_path
         self._dependencies = dict()
-        self._file_hashes = dict()
+        self._dependencies_hashes = dict()
+        self._test_hashes = dict()
 
         if pathlib.Path(file_path).exists():
             with open(file_path) as file:
                 parsed_json = json.load(file)
                 depedencies = parsed_json.get('dependencies', self._dependencies)
-                file_hashes = parsed_json.get('file_hashes', self._file_hashes)
+                dependencies_hashes = parsed_json.get('dependencies_hashes', self._dependencies_hashes)
+                test_hashes = parsed_json.get('test_hashes', self._test_hashes)
                 if not isinstance(depedencies, dict):
                     raise InvalidConfigurationFile('dependencies is not a dictionary')
-                if not isinstance(file_hashes, dict):
-                    raise InvalidConfigurationFile('file_hashes is not a dictionary')
+                if not isinstance(dependencies_hashes, dict):
+                    raise InvalidConfigurationFile('dependencies_hashes is not a dictionary')
+                if not isinstance(test_hashes, dict):
+                    raise InvalidConfigurationFile('test_hashes is not a dictionary')
                 self._dependencies = depedencies
-                self._file_hashes = file_hashes
-    
+                self._dependencies_hashes = dependencies_hashes
+                self._test_hashes = test_hashes
+
     def set_test_dependencies_entry(self, test_file_path, test_name):
         """
         Set an entry of the test in the dependency dictionary. If there's no entry, an empty list
@@ -81,21 +86,33 @@ class EkstaziConfiguration:
         if test_key in self._dependencies: 
             del self._dependencies[test_key]
     
-    def add_file_hash(self, file_path):
+    def add_dependency_hash(self, file_path):
         """Add or update the hash value of a file. This function calculates SHA-1 hash of the file content.
         
         :param file_path Location of the file
-        :param file_hash Hash value of the file content
         """
         file_path = str(file_path)
-        self._file_hashes[file_path] = file_hash(file_path)
+        self._dependencies_hashes[file_path] = file_hash(file_path)
+    
+    def add_test_file_hash(self, test_location):
+        """Add or update the hash value of a test file. This function calculates SHA-1 hash of the file content.
+        
+        :param test_location Location of the test
+        """
+        test_location = str(test_location)
+        self._test_hashes[test_location] = file_hash(test_location)
 
-    def get_file_hash(self, file_path):
-        return self._file_hashes[file_path]
+    def get_dependency_hash(self, file_path):
+        return self._dependencies_hashes.get(str(file_path))
+    
+    def get_test_file_hash(self, test_location):
+        return self._test_hashes.get(str(test_location))
 
     def save(self):
         """Save the dependencies and file hashes into the configuration file"""
-        json_content = {'dependencies': self._dependencies, 'file_hashes': self._file_hashes}
+        json_content = {'dependencies': self._dependencies,
+                        'dependencies_hashes': self._dependencies_hashes,
+                        'test_hashes': self._test_hashes}
         with open(self._file_path, 'w') as file:
             json.dump(json_content, file, indent=4)
     
