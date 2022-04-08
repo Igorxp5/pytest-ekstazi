@@ -6,10 +6,10 @@ import functools
 
 import pytest
 
-from .config import EkstaziConfiguration, file_hash
+from .config import EkstaziConfiguration, TestOutcome, file_hash
 
 DEFAULT_CONFIG_FILE = pathlib.Path.cwd() / 'ekstazi.json'
-IGNORABLE_FILE = re.compile(r'\<.+\>')
+TRACE_IGNORE_FILES = re.compile(r'\<.+\>')
 
 
 class EkstaziPytestPlugin:
@@ -18,26 +18,33 @@ class EkstaziPytestPlugin:
 
     def __init__(self, configuration):
         self._tracers = dict()
+        self._test_results = dict()
         self._configuration = configuration
 
-    def pytest_collection_modifyitems(self, config, items):
-        skip = pytest.mark.skip(reason='The test dependencies was not changed since the last test execution')
-        dependencies_hashes = dict()
-        test_file_hashes = dict()
-        for item in items:
-            test_name = item.originalname
-            test_location = item.fspath
-            test_location = self._get_relative_file_path(test_location)
-            dependencies = self._configuration.get_test_dependencies(test_location, test_name)
-            if dependencies:
-                for dependency in dependencies:
-                    dependencies_hashes.setdefault(dependency, file_hash(dependency))
+        # caching the hashes of the files to avoid re-calculate every pytest_runtest_setup call 
+        self._dependencies_hashes = dict()
+        self._test_file_hashes = dict()
 
-            # if all dependencies are the same, the test case is skipped
-            if all(dependencies_hashes[d] == self._configuration.get_dependency_hash(d) for d in dependencies):
-                test_file_hashes.setdefault(test_location, file_hash(test_location))
-                if test_file_hashes[test_location] == self._configuration.get_test_file_hash(test_location):
-                    item.add_marker(skip)
+    def pytest_runtest_setup(self, item):
+        test_name = item.originalname
+        test_location = item.fspath
+        test_location = self._get_relative_file_path(test_location)
+        dependencies = self._configuration.get_test_dependencies(test_location, test_name)
+        if dependencies:
+            for dependency in dependencies:
+                self._dependencies_hashes.setdefault(dependency, file_hash(dependency))
+
+        # if the test dependencies has been already identified and all dependencies are the same (or the test does not have any dependency) 
+        # and its test file is the same the should be skipped.
+        # when the last test execution has resulted in fail, an xfail is thrown
+        if dependencies is not None and all(self._dependencies_hashes[d] == self._configuration.get_dependency_hash(d) for d in dependencies):
+            self._test_file_hashes.setdefault(test_location, file_hash(test_location))
+            if self._test_file_hashes[test_location] == self._configuration.get_test_file_hash(test_location):
+                test_result = self._configuration.get_last_test_result(test_location, test_name)
+                if test_result in (TestOutcome.ERROR, TestOutcome.FAILED):
+                    raise pytest.xfail.Exception('The test has failed in the last execution and its dependencies have not changed')
+                elif test_result == TestOutcome.PASSED:
+                    raise pytest.skip.Exception('The test and its dependencies were not changed since the last test execution')
 
     def pytest_pyfunc_call(self, pyfuncitem):
         test_name = pyfuncitem.originalname
@@ -55,7 +62,22 @@ class EkstaziPytestPlugin:
 
         pyfuncitem.obj = tracer_wrapper
     
+    @pytest.hookimpl(tryfirst=True, hookwrapper=True)
+    def pytest_runtest_makereport(self, item, call):
+        outcome = yield
+        result = outcome.get_result()
+
+        if result.when == 'setup' and result.outcome == 'failed':
+            self._test_results[item] = TestOutcome.ERROR
+        elif result.when == 'call' and result.outcome == 'failed':
+            self._test_results[item] = TestOutcome.FAILED
+        elif result.when == 'call' and result.outcome == 'passed':
+            self._test_results[item] = TestOutcome.PASSED
+        elif result.when == 'call' and result.outcome == 'skipped':
+            self._test_results[item] = TestOutcome.SKIPPED
+
     def pytest_sessionfinish(self, session, exitstatus):
+        # save test and test dependencies hashes
         dependency_files = set()
         for test_key, tracer in self._tracers.items():
             test_location, test_name = EkstaziConfiguration.extract_test_from_key(test_key)
@@ -68,13 +90,16 @@ class EkstaziPytestPlugin:
                 # ignore Python internal calls and the test itself
                 if all(not filename.startswith(path) for path in self._ignore_dirs) \
                         and filename != test_location and funcname != test_name \
-                        and not IGNORABLE_FILE.match(filename):
+                        and not TRACE_IGNORE_FILES.match(filename):
                     filename = self._get_relative_file_path(filename)
                     self._configuration.add_test_dependency(test_location, test_name, filename)
                     if filename not in dependency_files:
                         self._configuration.add_dependency_hash(filename)
                         # add file to a set, so we can avoid recalculate the hash for the same dependency
                         dependency_files.add(filename)
+        # save test results
+        for item, outcome in self._test_results.items():
+            self._configuration.set_test_result(item.fspath, item.originalname, outcome)
         self._configuration.save()
 
     @staticmethod
