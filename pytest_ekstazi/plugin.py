@@ -16,16 +16,26 @@ class EkstaziPytestPlugin:
     # ignorable modules dirs (Python internal modules) 
     _ignore_dirs = [sys.prefix, sys.exec_prefix]
 
-    def __init__(self, configuration):
+    def __init__(self, configuration, select_tests=True):
+        """
+        Create instance of Ekstazi Pytest plugin
+
+        :param configuration EkstaziConfiguration object
+        :param select_tests Enable test selection phase
+        """
         self._tracers = dict()
         self._test_results = dict()
         self._configuration = configuration
+        self._select_tests = select_tests
 
         # caching the hashes of the files to avoid re-calculate every pytest_runtest_setup call 
         self._dependencies_hashes = dict()
         self._test_file_hashes = dict()
 
     def pytest_runtest_setup(self, item):
+        if not self._select_tests:
+            return None
+
         test_name = item.originalname
         test_location = item.fspath
         test_location = self._get_relative_file_path(test_location)
@@ -110,7 +120,8 @@ class EkstaziPytestPlugin:
 def pytest_configure(config):
     if config.getvalue('use_ekstazi'):
         configuration = EkstaziConfiguration(config.getvalue('ekstazi_file'))
-        config.pluginmanager.register(EkstaziPytestPlugin(configuration), 'ekstazi_plugin')
+        select_tests = config.getvalue('ekstazi_selection')
+        config.pluginmanager.register(EkstaziPytestPlugin(configuration, select_tests), 'ekstazi_plugin')
 
 
 def pytest_addoption(parser):
@@ -129,5 +140,14 @@ def pytest_addoption(parser):
         dest='ekstazi_file',
         default=DEFAULT_CONFIG_FILE,
         help='Ekstazi configuration file. '
-        'The file contains the test cases\' file dependencies and the hashes of their content.'
+             'The file contains the test cases\' file dependencies and the hashes of their content.'
+    )
+
+    parser.addoption(
+        '--no-ekstazi-selection',
+        dest='ekstazi_selection',
+        action='store_false',
+        default=True,
+        help='Selection phase of Ekstazi plugin is skipped. The hashes and test dependencies '
+             'is still calculated and updated at end of the test session.'
     )
