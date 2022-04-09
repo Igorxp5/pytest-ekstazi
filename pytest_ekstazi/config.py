@@ -1,14 +1,6 @@
 import enum
 import json
 import pathlib
-import hashlib
-
-
-def file_hash(file_path):
-    """Calculate SHA1 of the content of a file"""
-    with open(file_path, 'rb') as file:
-        file_content = file.read()
-        return hashlib.sha1(file_content).hexdigest()
 
 
 class TestOutcome(str, enum.Enum):
@@ -93,21 +85,24 @@ class EkstaziConfiguration:
         if test_key in self._dependencies: 
             del self._dependencies[test_key]
     
-    def add_dependency_hash(self, file_path):
+    def add_dependency_hash(self, file_path, hashdigest):
         """Add or update the hash value of a file. This function calculates SHA-1 hash of the file content.
         
         :param file_path Location of the file
+        :param hashdigest Hash hexdigest of the file
         """
         file_path = str(file_path)
-        self._dependencies_hashes[file_path] = file_hash(file_path)
+        self._dependencies_hashes[file_path] = hashdigest
     
-    def add_test_file_hash(self, test_location):
+    def add_test_hash(self, test_file_path, test_name, hashdigest):
         """Add or update the hash value of a test file. This function calculates SHA-1 hash of the file content.
         
-        :param test_location Location of the test
+        :param test_file_path Location of the test
+        :param test_name Test function name
+        :param hashdigest Hash hexdigest of the test
         """
-        test_location = str(test_location)
-        self._test_hashes[test_location] = file_hash(test_location)
+        test_key = self.get_test_key(test_file_path, test_name)
+        self._test_hashes[test_key] = hashdigest
     
     def set_test_result(self, test_file_path, test_name, outcome):
         """
@@ -127,12 +122,14 @@ class EkstaziConfiguration:
         """
         return self._dependencies_hashes.get(str(file_path))
     
-    def get_test_file_hash(self, test_location):
+    def get_test_hash(self, test_file_path, test_name):
         """Get the hash of the content of a test file saved in the configuration 
 
-        :param test_location Location of the test
+        :param test_file_path Location of the test
+        :param test_name Test function name
         """
-        return self._test_hashes.get(str(test_location))
+        test_key = self.get_test_key(test_file_path, test_name)
+        return self._test_hashes.get(test_key)
     
     def get_last_test_result(self, test_file_path, test_name):
         """

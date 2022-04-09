@@ -2,11 +2,14 @@ import re
 import sys
 import trace
 import pathlib
+import inspect
+import hashlib
 import functools
 
 import pytest
 
-from .config import EkstaziConfiguration, TestOutcome, file_hash
+from .config import EkstaziConfiguration, TestOutcome
+from .utils import file_hash
 
 DEFAULT_CONFIG_FILE = pathlib.Path.cwd() / 'ekstazi.json'
 TRACE_IGNORE_FILES = re.compile(r'\<.+\>')
@@ -16,21 +19,25 @@ class EkstaziPytestPlugin:
     # ignorable modules dirs (Python internal modules) 
     _ignore_dirs = [sys.prefix, sys.exec_prefix]
 
-    def __init__(self, configuration, select_tests=True):
+    def __init__(self, configuration, rootdir, select_tests=True):
         """
         Create instance of Ekstazi Pytest plugin
 
         :param configuration EkstaziConfiguration object
+        :param rootdir Pytest root dir
         :param select_tests Enable test selection phase
         """
         self._tracers = dict()
+        self._pyfuncitems = dict()
         self._test_results = dict()
         self._configuration = configuration
+        self._rootdir = rootdir
         self._select_tests = select_tests
 
         # caching the hashes of the files to avoid re-calculate every pytest_runtest_setup call 
         self._dependencies_hashes = dict()
-        self._test_file_hashes = dict()
+        self._test_hashes = dict()
+        self._fixture_hashes = dict()
 
     def pytest_runtest_setup(self, item):
         if not self._select_tests:
@@ -48,8 +55,9 @@ class EkstaziPytestPlugin:
         # and its test file is the same the should be skipped.
         # when the last test execution has resulted in fail, an xfail is thrown
         if dependencies is not None and all(self._dependencies_hashes[d] == self._configuration.get_dependency_hash(d) for d in dependencies):
-            self._test_file_hashes.setdefault(test_location, file_hash(test_location))
-            if self._test_file_hashes[test_location] == self._configuration.get_test_file_hash(test_location):
+            test_key = EkstaziConfiguration.get_test_key(test_location, test_name)
+            self._test_hashes[test_key] = self._get_pyfuncitem_hash(item._pyfuncitem)
+            if self._test_hashes[test_key] == self._configuration.get_test_hash(test_location, test_name):
                 test_result = self._configuration.get_last_test_result(test_location, test_name)
                 if test_result in (TestOutcome.ERROR, TestOutcome.FAILED):
                     raise pytest.xfail.Exception('The test has failed in the last execution and its dependencies have not changed')
@@ -65,6 +73,7 @@ class EkstaziPytestPlugin:
         test_key = EkstaziConfiguration.get_test_key(test_location, test_name)
         tracer = trace.Trace(trace=0, count=1, countfuncs=1, ignoredirs=EkstaziPytestPlugin._ignore_dirs)
         self._tracers[test_key] = tracer
+        self._pyfuncitems[test_key] = pyfuncitem
 
         @functools.wraps(test_function)
         def tracer_wrapper(*args, **kwargs):
@@ -93,7 +102,9 @@ class EkstaziPytestPlugin:
             test_location, test_name = EkstaziConfiguration.extract_test_from_key(test_key)
             results = tracer.results()
             self._configuration.remove_dependencies(test_location, test_name)
-            self._configuration.add_test_file_hash(test_location)
+            if test_key not in self._test_hashes:
+                self._test_hashes[test_key] = self._get_pyfuncitem_hash(self._pyfuncitems[test_key])
+            self._configuration.add_test_hash(test_location, test_name, self._test_hashes[test_key])
             self._configuration.set_test_dependencies_entry(test_location, test_name)
             calls = sorted(results.calledfuncs)
             for filename, _, funcname in calls:
@@ -104,7 +115,7 @@ class EkstaziPytestPlugin:
                     filename = self._get_relative_file_path(filename)
                     self._configuration.add_test_dependency(test_location, test_name, filename)
                     if filename not in dependency_files:
-                        self._configuration.add_dependency_hash(filename)
+                        self._configuration.add_dependency_hash(filename, file_hash(filename))
                         # add file to a set, so we can avoid recalculate the hash for the same dependency
                         dependency_files.add(filename)
         # save test results
@@ -112,16 +123,29 @@ class EkstaziPytestPlugin:
             self._configuration.set_test_result(item.fspath, item.originalname, outcome)
         self._configuration.save()
 
-    @staticmethod
-    def _get_relative_file_path(file_path):
-        return pathlib.Path(file_path).relative_to(pathlib.Path.cwd())
+    def _get_relative_file_path(self, file_path):
+        return pathlib.Path(file_path).relative_to(self._rootdir)
+    
+    def _get_pyfuncitem_hash(self, pyfuncitem):
+        hashes = []
+        for fixture_name in pyfuncitem.fixturenames:
+            fixture_def = pyfuncitem._fixtureinfo.name2fixturedefs[fixture_name][0]
+            cache_key = '{}_{}'.format(fixture_def.baseid, fixture_def.argname)
+            if cache_key not in self._fixture_hashes:
+                fixture_content = inspect.getsource(fixture_def.func).encode()
+                fixture_hash = hashlib.sha1(fixture_content).hexdigest()
+                self._fixture_hashes[cache_key] = fixture_hash
+            hashes.append(self._fixture_hashes[cache_key])
+        function_content = inspect.getsource(pyfuncitem.obj).encode()
+        hashes.append(hashlib.sha1(function_content).hexdigest())
+        return hashlib.sha1('\n'.join(hashes).encode()).hexdigest()
 
 
 def pytest_configure(config):
     if config.getvalue('use_ekstazi'):
         configuration = EkstaziConfiguration(config.getvalue('ekstazi_file'))
         select_tests = config.getvalue('ekstazi_selection')
-        config.pluginmanager.register(EkstaziPytestPlugin(configuration, select_tests), 'ekstazi_plugin')
+        config.pluginmanager.register(EkstaziPytestPlugin(configuration, config.rootdir, select_tests), 'ekstazi_plugin')
 
 
 def pytest_addoption(parser):
