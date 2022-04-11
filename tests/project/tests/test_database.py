@@ -9,6 +9,5 @@ def test_delete_product():
     assert not product, 'Product not deleted'
 
 
-
-
-
+def test_assert_false():
+    assert False, 'The assert shuold fail'
