@@ -11,7 +11,8 @@ import pytest
 from .config import EkstaziConfiguration, TestOutcome
 from .utils import file_hash
 
-DEFAULT_CONFIG_FILE = pathlib.Path.cwd() / 'ekstazi.json'
+DEFAULT_CONFIG_FILE = 'ekstazi.json'
+DEFAULT_CONFIG_FILE_PATH = pathlib.Path.cwd() / DEFAULT_CONFIG_FILE
 TRACE_IGNORE_FILES = re.compile(r'\<.+\>')
 
 
@@ -162,7 +163,7 @@ def pytest_addoption(parser):
     parser.addoption(
         '--ekstazi-file',
         dest='ekstazi_file',
-        default=DEFAULT_CONFIG_FILE,
+        default=DEFAULT_CONFIG_FILE_PATH,
         help='Ekstazi configuration file. '
              'The file contains the test cases\' file dependencies and the hashes of their content.'
     )
