@@ -7,7 +7,3 @@ def test_delete_product():
     product = database.delete_product_by_id(product_id)
     product = database.search_product_by_id(product_id)
     assert not product, 'Product not deleted'
-
-
-def test_assert_false():
-    assert False, 'The assert shuold fail'

@@ -8,3 +8,4 @@ CUSTOM_FILE_NO_SELECTION_OPTIONS = DEFAULT_PYTEST_OPTIONS + ['--no-test-selectio
                                                              CUSTOM_CONFIGURATION_FILE]
 
 TESTING_PROJECT_ROOT = pathlib.Path(__file__).parent / 'project'
+TESTING_PROJECT_TEST_ROOT = TESTING_PROJECT_ROOT / 'tests'

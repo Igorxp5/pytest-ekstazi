@@ -1,7 +1,12 @@
+import pathlib
+
 import pytest
 
+from pytest_ekstazi.plugin import DEFAULT_CONFIG_FILE
+
 from constants import DEFAULT_PYTEST_OPTIONS, NO_TEST_SELECTION_OPTIONS, CONFIGURATION_FILE_OPTIONS, \
-    CUSTOM_FILE_NO_SELECTION_OPTIONS
+    CUSTOM_FILE_NO_SELECTION_OPTIONS, TESTING_PROJECT_TEST_ROOT
+from utils import run_pytest, extract_pytest_results, TestResult
 
 
 def test_pytest_without_ekstazi_flag():
@@ -9,7 +14,32 @@ def test_pytest_without_ekstazi_flag():
     The plugin should only be enabled when --ekstazi flag is provided. 
     No configuration file shuold be created and no test selection shuold be done.
     """
-    raise NotImplementedError
+    output = run_pytest()[1]
+    results = extract_pytest_results(output)
+
+    assert not (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
+        'No configuration file should be created when the plugin is not enabled'
+    
+    output = run_pytest()[1]
+    assert results == extract_pytest_results(output), \
+        'The execution should be the same if the plugin is not enabled'
+
+    assert not (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
+        'No configuration file should be created when the plugin is not enabled'
+    
+    output = run_pytest(['--ekstazi'])[1]
+    assert results == extract_pytest_results(output), \
+        'The first execution in pytest with the plugin enabled should be the same of without the plugin enabled'
+    
+    output = run_pytest(['--ekstazi'])[1]
+    
+    assert (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
+        'Configuration file should be created when the plugin is enabled and the execution has finished'
+
+    results = extract_pytest_results(output)
+    assert all(test_result in (TestResult.SKIPPED, TestResult.XFAILED) for test_result in results), \
+        'The second execution in pytest with the plugin enabled shuold select no test cases (no test dependency has changed)'
+    
 
 @pytest.mark.parametrize('pytest_options', [DEFAULT_PYTEST_OPTIONS, NO_TEST_SELECTION_OPTIONS,
                                             CONFIGURATION_FILE_OPTIONS, CUSTOM_FILE_NO_SELECTION_OPTIONS])
