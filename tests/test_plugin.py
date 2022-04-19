@@ -5,8 +5,8 @@ import pytest
 from pytest_ekstazi.plugin import DEFAULT_CONFIG_FILE
 
 from .constants import DEFAULT_PYTEST_OPTIONS, NO_TEST_SELECTION_OPTIONS, CONFIGURATION_FILE_OPTIONS, \
-    CUSTOM_FILE_NO_SELECTION_OPTIONS, TESTING_PROJECT_TEST_ROOT
-from .utils import run_pytest, extract_pytest_results, TestResult
+    CUSTOM_FILE_NO_SELECTION_OPTIONS, TESTING_PROJECT_TEST_ROOT, XFAIL_TEST_CASES, TESTING_PROJECT_ROOT
+from .utils import run_pytest, extract_pytest_results, extract_test_case_results, TestResult, edit_file_content
 
 
 def test_pytest_without_ekstazi_flag():
@@ -78,12 +78,32 @@ def test_save_test_results(pytest_options):
     raise NotImplementedError
 
 @pytest.mark.parametrize('pytest_options', [DEFAULT_PYTEST_OPTIONS, CONFIGURATION_FILE_OPTIONS])
-def test_select_test_cases(pytest_options):
+def test_select_test_cases(pytest_options, project_test_cases):
     """
     The plugin should just run the test cases that have their dependencies updated.
     The other tests should be skipped.
     """
-    raise NotImplementedError
+    output = run_pytest(pytest_options)[1]
+    assert set(extract_test_case_results(output).keys()) == project_test_cases, 'Some test cases was not selected'
+    
+    output = run_pytest(pytest_options)[1]
+    results = extract_test_case_results(output)
+    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
+    assert all(results[test] == TestResult.XFAIL for test in XFAIL_TEST_CASES), 'Test cases was not marked as xfail'
+    assert all(result == TestResult.SKIPPED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
+        'The other test cases should be marked as skipped'
+
+    new_content = 'def read_qrcode(im_array):\n    return len(im_array) / 3\n\ndef read_barcode(im_array):\n    return len(im_array) / 2\n'
+    with edit_file_content(pathlib.Path(TESTING_PROJECT_ROOT) / 'project' / 'readers.py', new_content):
+        output = run_pytest(pytest_options)[1]
+        results = extract_test_case_results(output)
+        failed_tests = ['test_code_readers.py::test_read_qr_code', 'test_code_readers.py::test_read_barcode']
+        assert all(results[test] == TestResult.FAILED for test in failed_tests), 'Test cases dependent of modified files did not run again'
+        assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
+        assert all(results[test] == TestResult.XFAIL for test in XFAIL_TEST_CASES if test not in failed_tests), 'Test cases was not marked as xfail'
+        assert all(result == TestResult.SKIPPED for test, result in results.items() if test not in XFAIL_TEST_CASES and test not in failed_tests), \
+        'The other test cases should be marked as skipped'
+
 
 @pytest.mark.parametrize('pytest_options', [DEFAULT_PYTEST_OPTIONS, CONFIGURATION_FILE_OPTIONS])
 def test_select_changed_test_cases(pytest_options):

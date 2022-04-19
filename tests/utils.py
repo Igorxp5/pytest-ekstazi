@@ -2,6 +2,7 @@ import re
 import enum
 import logging
 import subprocess
+import contextlib
 
 from .constants import TESTING_PROJECT_TEST_ROOT
 
@@ -12,8 +13,10 @@ class TestResult(enum.Enum):
     PASSED = 'passed'
     FAILED = 'failed'
     SKIPPED = 'skipped'
+    XFAIL = 'xfail'
     XFAILED = 'xfailed'
-    ERROR = 'errors'
+    ERRORS = 'errors'
+    ERROR = 'error'
 
 
 def run_pytest(optional_args=None, timeout=30):
@@ -59,3 +62,41 @@ def extract_pytest_results(pytest_output):
         total = int(match.group(1))
         results[test_result] = total
     return results
+
+def extract_test_case_results(pytest_output):
+    """
+    Get result of each test case ran in a pytest execution
+
+    :param pytest_output stdout of pytest execution
+    :rtype Dict[str, TestResult]
+    """
+    lines = pytest_output.split('\n')
+    start_index = 0
+    while not re.match(r'collecting ... collected \d+ items', lines[start_index]):
+        start_index += 1
+
+    results = dict()
+    index = start_index + 2
+    while lines[index].strip():
+        line = lines[index]
+        raw_split = line.split(' ', 2)
+        test_result = TestResult(raw_split[1].lower())
+        test_case = raw_split[0]
+        results[test_case] = test_result
+        index += 1
+    return results
+
+
+@contextlib.contextmanager
+def edit_file_content(filepath, new_content):
+    """Re-write a file and recover the original content when out of the context"""
+    original_content = ''
+    with open(filepath) as file:
+        original_content = file.read()
+    with open(filepath, 'w') as file:
+        file.write(new_content)
+    try:
+        yield
+    finally:
+        with open(filepath, 'w') as file:
+            file.write(original_content)

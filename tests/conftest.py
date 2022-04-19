@@ -6,7 +6,7 @@ import pytest
 from pytest_ekstazi.plugin import DEFAULT_CONFIG_FILE
 
 from .constants import TESTING_PROJECT_TEST_ROOT, CUSTOM_CONFIGURATION_FILE
-from .utils import run_pytest
+from .utils import run_pytest, extract_test_case_results
 
 CONFIGURATION_FILES = [DEFAULT_CONFIG_FILE, CUSTOM_CONFIGURATION_FILE]
 
@@ -25,5 +25,5 @@ def delete_configuration_file():
 
 @pytest.fixture(scope='session')
 def project_test_cases():
-    output = run_pytest(['--collect-only', '-q'])[1]
-    return output.strip().split('\n')[:-2]
+    output = run_pytest()[1]
+    return set(extract_test_case_results(output).keys())

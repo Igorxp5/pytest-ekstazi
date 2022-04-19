@@ -9,3 +9,5 @@ CUSTOM_FILE_NO_SELECTION_OPTIONS = DEFAULT_PYTEST_OPTIONS + ['--no-test-selectio
 
 TESTING_PROJECT_ROOT = pathlib.Path(__file__).parent / 'project'
 TESTING_PROJECT_TEST_ROOT = TESTING_PROJECT_ROOT / 'tests'
+
+XFAIL_TEST_CASES = ['test_assert.py::test_assert_false', 'test_code_readers.py::test_read_barcode']
