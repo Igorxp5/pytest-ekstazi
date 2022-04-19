@@ -1,14 +1,19 @@
 import re
 import enum
+import logging
 import subprocess
 
-from constants import TESTING_PROJECT_TEST_ROOT
+from .constants import TESTING_PROJECT_TEST_ROOT
+
+LOGGER = logging.getLogger(__name__)
+
 
 class TestResult(enum.Enum):
     PASSED = 'passed'
     FAILED = 'failed'
     SKIPPED = 'skipped'
     XFAILED = 'xfailed'
+    ERROR = 'errors'
 
 
 def run_pytest(optional_args=None, timeout=30):
@@ -24,7 +29,16 @@ def run_pytest(optional_args=None, timeout=30):
                                stderr=subprocess.PIPE, stdout=subprocess.PIPE, 
                                text=True, shell=True, cwd=TESTING_PROJECT_TEST_ROOT)
     process.wait(timeout=timeout)
-    return process.returncode, process.stdout.read(), process.stderr.read()
+    
+    stdout = process.stdout.read()
+    stderr = process.stderr.read()
+    
+    LOGGER.debug(f'==== PYTEST STDOUT ====')
+    LOGGER.debug(stdout)
+    LOGGER.debug(f'==== PYTEST STDERR ====')
+    LOGGER.debug(stderr)
+    
+    return process.returncode, stdout, stderr
 
 
 def extract_pytest_results(pytest_output):

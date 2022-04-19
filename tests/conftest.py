@@ -5,8 +5,8 @@ import pytest
 
 from pytest_ekstazi.plugin import DEFAULT_CONFIG_FILE
 
-from constants import TESTING_PROJECT_TEST_ROOT, CUSTOM_CONFIGURATION_FILE
-from utils import run_pytest
+from .constants import TESTING_PROJECT_TEST_ROOT, CUSTOM_CONFIGURATION_FILE
+from .utils import run_pytest
 
 CONFIGURATION_FILES = [DEFAULT_CONFIG_FILE, CUSTOM_CONFIGURATION_FILE]
 
