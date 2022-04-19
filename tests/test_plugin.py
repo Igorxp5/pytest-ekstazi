@@ -4,9 +4,9 @@ import pytest
 
 from pytest_ekstazi.plugin import DEFAULT_CONFIG_FILE
 
-from constants import DEFAULT_PYTEST_OPTIONS, NO_TEST_SELECTION_OPTIONS, CONFIGURATION_FILE_OPTIONS, \
+from .constants import DEFAULT_PYTEST_OPTIONS, NO_TEST_SELECTION_OPTIONS, CONFIGURATION_FILE_OPTIONS, \
     CUSTOM_FILE_NO_SELECTION_OPTIONS, TESTING_PROJECT_TEST_ROOT
-from utils import run_pytest, extract_pytest_results, TestResult
+from .utils import run_pytest, extract_pytest_results, TestResult
 
 
 def test_pytest_without_ekstazi_flag():
@@ -16,6 +16,8 @@ def test_pytest_without_ekstazi_flag():
     """
     output = run_pytest()[1]
     results = extract_pytest_results(output)
+
+    assert TestResult.FAILED in results and TestResult.PASSED in results, 'Invalid pytest result'
 
     assert not (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
         'No configuration file should be created when the plugin is not enabled'
@@ -37,7 +39,7 @@ def test_pytest_without_ekstazi_flag():
         'Configuration file should be created when the plugin is enabled and the execution has finished'
 
     results = extract_pytest_results(output)
-    assert all(test_result in (TestResult.SKIPPED, TestResult.XFAILED) for test_result in results), \
+    assert results and all(test_result in (TestResult.SKIPPED, TestResult.XFAILED) for test_result in results), \
         'The second execution in pytest with the plugin enabled shuold select no test cases (no test dependency has changed)'
     
 
