@@ -37,5 +37,7 @@ class User:
                 'access_level': self.access_level}
 
     @staticmethod
-    def from_dict(self, props):
-        pass
+    def from_dict(props):
+        return User(name=props['name'], birthday=props['birthday'],
+                    social_number=props['social_number'], phone=props['phone'],
+                    access_level=AccessLevel(props['access_level']))
