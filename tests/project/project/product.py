@@ -15,5 +15,6 @@ class Product:
         return {'id': self.id, 'name': self.name, 'price': self.price, 'amount': self.amount}
 
     @staticmethod
-    def from_dict(self, props):
-        pass
+    def from_dict(props):
+        return Product(id_=props['id'], name=props['name'],
+                       price=props['price'], amount=props['amount'])
