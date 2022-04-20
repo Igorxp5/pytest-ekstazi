@@ -33,8 +33,11 @@ def test_pytest_without_ekstazi_flag():
     assert results == extract_pytest_results(output), \
         'The first execution in pytest with the plugin enabled should be the same of without the plugin enabled'
     
+    assert (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
+        'Configuration file should be created when the plugin is enabled and the execution has finished'
+
     output = run_pytest(['--ekstazi'])[1]
-    
+
     assert (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
         'Configuration file should be created when the plugin is enabled and the execution has finished'
 
