@@ -14,3 +14,8 @@ def delete_database_file():
     yield
     if database_filepath.exists():
         os.remove(database_filepath)
+
+
+@pytest.fixture
+def dummy_fixture():
+    return 'I do nothing'
