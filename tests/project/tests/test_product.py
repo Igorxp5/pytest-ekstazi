@@ -74,7 +74,7 @@ def test_insert_product():
     with open(DEFAULT_DATABASE_FILE) as file:
         assert json.load(file).get('products', {}).get(product.id), 'Product should be in the database file'
 
-def test_unauthorized_access():
+def test_unauthorized_access(dummy_fixture):
     """
     Non-logged user should not be able to do any action in the database
     """
