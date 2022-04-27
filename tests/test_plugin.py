@@ -66,28 +66,28 @@ def test_save_test_dependencies(pytest_options, project_test_cases):
     configuration_file = TESTING_PROJECT_ROOT / 'tests' / configuration_file
     expected_test_dependencies = {
         'test_code_readers.py::test_read_qr_code': [
-            str(pathlib.Path('project') / 'readers.py')
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'readers.py')
         ],
         'test_code_readers.py::test_read_barcode': [
-            str(pathlib.Path('project') / 'readers.py')
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'readers.py')
         ],
         'test_product.py::test_product_access_level': [
-            str(pathlib.Path('project') / 'database.py'),
-            str(pathlib.Path('project') / 'access_level.py'),
-            str(pathlib.Path('project') / 'product.py')
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'database.py'),
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'access_level.py'),
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'product.py')
         ],
         'test_product.py::test_delete_product': [
-            str(pathlib.Path('project') / 'database.py'),
-            str(pathlib.Path('project') / 'product.py')
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'database.py'),
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'product.py')
         ],
         'test_product.py::test_insert_product': [
-            str(pathlib.Path('project') / 'database.py'),
-            str(pathlib.Path('project') / 'product.py')
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'database.py'),
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'product.py')
         ],
         'test_product.py::test_unauthorized_access': [
-            str(pathlib.Path('project') / 'database.py'),
-            str(pathlib.Path('project') / 'product.py'),
-            str(pathlib.Path('project') / 'user.py')
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'database.py'),
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'product.py'),
+            str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'user.py')
         ]
     }
     configuration = EkstaziConfiguration(configuration_file)
@@ -319,7 +319,7 @@ def test_save_new_test_dependency(pytest_options, project_test_cases):
     test_code_readers = TESTING_PROJECT_ROOT / 'tests' / 'test_code_readers.py'
     configuration = EkstaziConfiguration(configuration_file)
     test_dependencies = configuration.get_test_dependencies(test_code_readers.name, 'test_read_qr_code')
-    expected_test_dependencies = [str(pathlib.Path('project') / 'readers.py')]
+    expected_test_dependencies = [str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'readers.py')]
 
     assert set(test_dependencies) == set(expected_test_dependencies), 'The test dependencies are not right'
 
@@ -351,6 +351,6 @@ def test_save_new_test_dependency(pytest_options, project_test_cases):
 
     configuration = EkstaziConfiguration(configuration_file)
     new_test_dependencies = configuration.get_test_dependencies(test_code_readers.name, 'test_read_qr_code')
-    expected_test_dependencies = [str(pathlib.Path('project') / 'readers.py'), str(pathlib.Path('project') / 'database.py')]
+    expected_test_dependencies = [str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'readers.py'), str(TESTING_PROJECT_ROOT / pathlib.Path('project') / 'database.py')]
     
     assert set(new_test_dependencies) == set(expected_test_dependencies), 'The test dependencies was not updated'

@@ -27,10 +27,10 @@ def run_pytest(optional_args=None, timeout=30):
     :param timeout Time limit to pytest process exit
     :return process exit code, standard output and stdard error 
     """
-    optional_args = optional_args or [] 
-    process = subprocess.Popen(['pytest'] + optional_args + ['-sv', '.'], 
-                               stderr=subprocess.PIPE, stdout=subprocess.PIPE, 
-                               text=True, shell=True, cwd=TESTING_PROJECT_TEST_ROOT)
+    optional_args = optional_args or []
+    process = subprocess.Popen(['pytest'] + optional_args + ['-sv', '.'],
+                               stderr=subprocess.PIPE, stdout=subprocess.PIPE,
+                               text=True, cwd=TESTING_PROJECT_TEST_ROOT)
     process.wait(timeout=timeout)
     
     stdout = process.stdout.read()
@@ -72,7 +72,7 @@ def extract_test_case_results(pytest_output):
     """
     lines = pytest_output.split('\n')
     start_index = 0
-    while not re.match(r'collecting ... collected \d+ items', lines[start_index]):
+    while not re.match(r'(collecting ... )?collected \d+ items', lines[start_index]):
         start_index += 1
 
     results = dict()
