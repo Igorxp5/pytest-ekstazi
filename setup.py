@@ -17,6 +17,7 @@ setuptools.setup(
     long_description_content_type='text/markdown',
     url='https://github.com/Igorxp5/pytest-ekstazi',
     packages=['pytest_ekstazi'],
+    include_package_data=True,
     classifiers=[
         'Programming Language :: Python :: 3',
         'License :: OSI Approved :: MIT License',
@@ -24,8 +25,9 @@ setuptools.setup(
         'Framework :: Pytest'
     ],
     entry_points={
-        'pytest11': ['pytest_ekstazi = pytest_ekstazi.plugin']
+        'pytest11': ['pytest_ekstazi = pytest_ekstazi.plugin'],
+        'console_scripts': ['ekstazi_matrix = pytest_ekstazi.console_scripts:ekstazi_matrix']
     },
-    install_requires=['pytest'],
+    install_requires=['pytest', 'Jinja2'],
     python_requires='>=3.7',
 )
