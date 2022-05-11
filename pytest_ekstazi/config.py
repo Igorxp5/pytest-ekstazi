@@ -50,7 +50,7 @@ class EkstaziConfiguration:
         :param test_name Test function name
         """
         test_key = self.get_test_key(test_file_path, test_name)
-        self._dependencies.setdefault(test_key, [])
+        self._dependencies.setdefault(test_key, set())
     
     def add_test_dependency(self, test_file_path, test_name, depedency_file_path):
         """
@@ -61,8 +61,8 @@ class EkstaziConfiguration:
         :param depedency_file_path Dependency file path
         """
         test_key = self.get_test_key(test_file_path, test_name)
-        self._dependencies.setdefault(test_key, [])
-        self._dependencies[test_key].append(str(depedency_file_path))
+        self._dependencies.setdefault(test_key, set())
+        self._dependencies[test_key].add(str(depedency_file_path))
     
     def get_test_dependencies(self, test_file_path, test_name):
         """
@@ -143,7 +143,7 @@ class EkstaziConfiguration:
 
     def save(self):
         """Save the dependencies and file hashes into the configuration file"""
-        json_content = {'dependencies': self._dependencies,
+        json_content = {'dependencies': {d: list(self._dependencies[d]) for d in self._dependencies},
                         'dependencies_hashes': self._dependencies_hashes,
                         'test_hashes': self._test_hashes,
                         'test_results': self._test_results}

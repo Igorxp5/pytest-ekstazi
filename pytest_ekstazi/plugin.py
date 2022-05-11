@@ -11,13 +11,16 @@ import pytest
 from .config import EkstaziConfiguration, TestOutcome
 from .utils import file_hash
 
-DEFAULT_CONFIG_FILE = pathlib.Path.cwd() / 'ekstazi.json'
+DEFAULT_CONFIG_FILE = 'ekstazi.json'
+DEFAULT_CONFIG_FILE_PATH = pathlib.Path.cwd() / DEFAULT_CONFIG_FILE
 TRACE_IGNORE_FILES = re.compile(r'\<.+\>')
+
+SITE_PACKAGES_PATH = str(pathlib.Path(pytest.__file__).parent.parent)
 
 
 class EkstaziPytestPlugin:
-    # ignorable modules dirs (Python internal modules) 
-    _ignore_dirs = [sys.prefix, sys.exec_prefix]
+    # ignorable modules dirs (Python internal modules)
+    _ignore_dirs = [sys.prefix, sys.exec_prefix, SITE_PACKAGES_PATH]
 
     def __init__(self, configuration, rootdir, select_tests=True):
         """
@@ -34,7 +37,7 @@ class EkstaziPytestPlugin:
         self._rootdir = rootdir
         self._select_tests = select_tests
 
-        # caching the hashes of the files to avoid re-calculate every pytest_runtest_setup call 
+        # caching the hashes of the files to avoid re-calculate every pytest_runtest_setup call
         self._dependencies_hashes = dict()
         self._test_hashes = dict()
         self._fixture_hashes = dict()
@@ -45,20 +48,20 @@ class EkstaziPytestPlugin:
 
         test_name = item.originalname
         test_location = item.fspath
-        test_location = self._get_relative_file_path(test_location)
-        dependencies = self._configuration.get_test_dependencies(test_location, test_name)
+        rel_test_location = self._get_relative_file_path(test_location)
+        dependencies = self._configuration.get_test_dependencies(rel_test_location, test_name)
         if dependencies:
             for dependency in dependencies:
-                self._dependencies_hashes.setdefault(dependency, file_hash(dependency))
+                self._dependencies_hashes.setdefault(dependency, file_hash(pathlib.Path(self._rootdir, dependency)))
 
-        # if the test dependencies has been already identified and all dependencies are the same (or the test does not have any dependency) 
+        # if the test dependencies has been already identified and all dependencies are the same (or the test does not have any dependency)
         # and its test file is the same the should be skipped.
         # when the last test execution has resulted in fail, an xfail is thrown
         if dependencies is not None and all(self._dependencies_hashes[d] == self._configuration.get_dependency_hash(d) for d in dependencies):
-            test_key = EkstaziConfiguration.get_test_key(test_location, test_name)
+            test_key = EkstaziConfiguration.get_test_key(rel_test_location, test_name)
             self._test_hashes[test_key] = self._get_pyfuncitem_hash(item._pyfuncitem)
-            if self._test_hashes[test_key] == self._configuration.get_test_hash(test_location, test_name):
-                test_result = self._configuration.get_last_test_result(test_location, test_name)
+            if self._test_hashes[test_key] == self._configuration.get_test_hash(rel_test_location, test_name):
+                test_result = self._configuration.get_last_test_result(rel_test_location, test_name)
                 if test_result in (TestOutcome.ERROR, TestOutcome.FAILED):
                     raise pytest.xfail.Exception('The test has failed in the last execution and its dependencies have not changed')
                 elif test_result == TestOutcome.PASSED:
@@ -80,7 +83,7 @@ class EkstaziPytestPlugin:
             tracer.runfunc(test_function, *args, **kwargs)
 
         pyfuncitem.obj = tracer_wrapper
-    
+
     @pytest.hookimpl(tryfirst=True, hookwrapper=True)
     def pytest_runtest_makereport(self, item, call):
         outcome = yield
@@ -107,17 +110,16 @@ class EkstaziPytestPlugin:
             self._configuration.add_test_hash(test_location, test_name, self._test_hashes[test_key])
             self._configuration.set_test_dependencies_entry(test_location, test_name)
             calls = sorted(results.calledfuncs)
-            for filename, _, funcname in calls:
+            for filepath, _, funcname in calls:
                 # ignore Python internal calls and the test itself
-                if all(not filename.startswith(path) for path in self._ignore_dirs) \
-                        and filename != test_location and funcname != test_name \
-                        and not TRACE_IGNORE_FILES.match(filename):
-                    filename = self._get_relative_file_path(filename)
-                    self._configuration.add_test_dependency(test_location, test_name, filename)
-                    if filename not in dependency_files:
-                        self._configuration.add_dependency_hash(filename, file_hash(filename))
+                if all(not filepath.startswith(path) for path in self._ignore_dirs) \
+                        and filepath != test_location and funcname != test_name \
+                        and not TRACE_IGNORE_FILES.match(filepath):
+                    self._configuration.add_test_dependency(test_location, test_name, filepath)
+                    if filepath not in dependency_files:
+                        self._configuration.add_dependency_hash(filepath, file_hash(filepath))
                         # add file to a set, so we can avoid recalculate the hash for the same dependency
-                        dependency_files.add(filename)
+                        dependency_files.add(filepath)
         # save test results
         for item, outcome in self._test_results.items():
             self._configuration.set_test_result(item.fspath, item.originalname, outcome)
@@ -125,7 +127,7 @@ class EkstaziPytestPlugin:
 
     def _get_relative_file_path(self, file_path):
         return pathlib.Path(file_path).relative_to(self._rootdir)
-    
+
     def _get_pyfuncitem_hash(self, pyfuncitem):
         hashes = []
         for fixture_name in pyfuncitem.fixturenames:
@@ -162,7 +164,7 @@ def pytest_addoption(parser):
     parser.addoption(
         '--ekstazi-file',
         dest='ekstazi_file',
-        default=DEFAULT_CONFIG_FILE,
+        default=DEFAULT_CONFIG_FILE_PATH,
         help='Ekstazi configuration file. '
              'The file contains the test cases\' file dependencies and the hashes of their content.'
     )
