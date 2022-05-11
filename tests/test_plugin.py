@@ -10,28 +10,33 @@ from .constants import CUSTOM_CONFIGURATION_FILE, DEFAULT_PYTEST_OPTIONS, CONFIG
 from .utils import run_pytest, extract_pytest_results, extract_test_case_results, TestResult, edit_file_content
 
 
-def test_pytest_without_ekstazi_flag():
+def test_pytest_ekstazi_flag(project_test_cases):
     """
     The plugin should only be enabled when --ekstazi flag is provided. 
-    No configuration file shuold be created and no test selection shuold be done.
+    No configuration file should be created and no test selection should be done until enabling the plugin.
     """
     output = run_pytest()[1]
-    results = extract_pytest_results(output)
+    results = extract_test_case_results(output)
 
-    assert TestResult.FAILED in results and TestResult.PASSED in results, 'Invalid pytest result'
+    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
+
+    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
+        'The other test cases (non fail) should be marked as PASSED'
+
+    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
 
     assert not (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
         'No configuration file should be created when the plugin is not enabled'
     
     output = run_pytest()[1]
-    assert results == extract_pytest_results(output), \
+    assert results == extract_test_case_results(output), \
         'The execution should be the same if the plugin is not enabled'
 
     assert not (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
         'No configuration file should be created when the plugin is not enabled'
     
     output = run_pytest(['--ekstazi'])[1]
-    assert results == extract_pytest_results(output), \
+    assert results == extract_test_case_results(output), \
         'The first execution in pytest with the plugin enabled should be the same of without the plugin enabled'
     
     assert (TESTING_PROJECT_TEST_ROOT / DEFAULT_CONFIG_FILE).exists(), \
@@ -48,16 +53,11 @@ def test_pytest_without_ekstazi_flag():
     
 
 @pytest.mark.parametrize('pytest_options', [DEFAULT_PYTEST_OPTIONS, CONFIGURATION_FILE_OPTIONS])
-def test_save_test_dependencies(pytest_options, project_test_cases):
+def test_save_test_dependencies(pytest_options):
     """
     The plugin should save each test dependencies in the configuration file at end of the test sesssion
     """
-    output = run_pytest(pytest_options)[1]
-    results = extract_test_case_results(output)
-    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
-    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
-        'The other test cases (non fail) should be marked as PASSED'
-    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
+    run_pytest(pytest_options)
 
     configuration_file = DEFAULT_CONFIG_FILE
     if pytest_options == CONFIGURATION_FILE_OPTIONS:
@@ -105,13 +105,7 @@ def test_save_test_dependencies_hashes(pytest_options, project_test_cases):
     The plugin should save each test dependencies hashes in the configuration file 
     at end of the test sesssion and when the test dependency change the hash of the file should change too. 
     """
-    
-    output = run_pytest(pytest_options)[1]
-    results = extract_test_case_results(output)
-    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
-    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
-        'The other test cases (non fail) should be marked as PASSED'
-    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
+    run_pytest(pytest_options)
 
     configuration_file = DEFAULT_CONFIG_FILE
     if pytest_options == CONFIGURATION_FILE_OPTIONS:
@@ -167,17 +161,12 @@ def test_save_test_dependencies_hashes(pytest_options, project_test_cases):
 
 
 @pytest.mark.parametrize('pytest_options', [DEFAULT_PYTEST_OPTIONS, CONFIGURATION_FILE_OPTIONS])
-def test_save_test_hashes(pytest_options, project_test_cases):
+def test_save_test_hashes(pytest_options):
     """
     The plugin should save each test hash in the configuration file at end of the test sesssion. The hash of a test case is
     the hash of whole file + its content. 
     """
-    output = run_pytest(pytest_options)[1]
-    results = extract_test_case_results(output)
-    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
-    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
-        'The other test cases (non fail) should be marked as PASSED'
-    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
+    run_pytest(pytest_options)
 
     configuration_file = DEFAULT_CONFIG_FILE
     if pytest_options == CONFIGURATION_FILE_OPTIONS:
@@ -209,12 +198,7 @@ def test_save_test_hashes_changes(pytest_options, project_test_cases):
     The plugin should save each test hash in the configuration file at end of the test sesssion
     and when the test file changes the hash of the file should change too.
     """
-    output = run_pytest(pytest_options)[1]
-    results = extract_test_case_results(output)
-    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
-    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
-        'The other test cases (non fail) should be marked as PASSED'
-    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
+    run_pytest(pytest_options)
 
     configuration_file = DEFAULT_CONFIG_FILE
     if pytest_options == CONFIGURATION_FILE_OPTIONS:
@@ -275,17 +259,12 @@ def test_save_test_hashes_changes(pytest_options, project_test_cases):
     
 
 @pytest.mark.parametrize('pytest_options', [DEFAULT_PYTEST_OPTIONS, CONFIGURATION_FILE_OPTIONS])
-def test_save_test_results(pytest_options, project_test_cases):
+def test_save_test_results(pytest_options):
     """
     The plugin should save the result of each test (PASS, FAIL, SKIPPED) in the configuration file 
     at end of the test sesssion.
     """
-    output = run_pytest(pytest_options)[1]
-    results = extract_test_case_results(output)
-    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
-    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
-        'The other test cases (non fail) should be marked as PASSED'
-    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
+    run_pytest(pytest_options)
 
     configuration_file = DEFAULT_CONFIG_FILE
     if pytest_options == CONFIGURATION_FILE_OPTIONS:
@@ -317,12 +296,7 @@ def test_save_test_results_changes(pytest_options, project_test_cases):
     The plugin should save the result of each test (PASS, FAIL, SKIPPED) in the configuration file 
     at end of the test sesssion and when the test file changes the result of the file should change too.
     """
-    output = run_pytest(pytest_options)[1]
-    results = extract_test_case_results(output)
-    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
-    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
-        'The other test cases (non fail) should be marked as PASSED'
-    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
+    run_pytest(pytest_options)
 
     configuration_file = DEFAULT_CONFIG_FILE
     if pytest_options == CONFIGURATION_FILE_OPTIONS:
@@ -520,12 +494,7 @@ def test_no_ekstazi_selection_option(pytest_options, project_test_cases):
     The plugin should not skip any test case by using Ekstazi selection algorithm when 
     --no-ekstazi-selection flag is provided.
     """
-    output = run_pytest(pytest_options)[1]
-    results = extract_test_case_results(output)
-    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
-    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
-        'The other test cases (non fail) should be marked as PASSED'
-    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
+    run_pytest(pytest_options)
 
     output = run_pytest(pytest_options)[1]
     results = extract_test_case_results(output)
@@ -547,12 +516,7 @@ def test_save_new_test_dependency(pytest_options, project_test_cases):
     """
     The plugin should save new test dependencies when the test case had that kind of changing.
     """
-    output = run_pytest(pytest_options)[1]
-    results = extract_test_case_results(output)
-    assert set(results.keys()) == project_test_cases, 'Some test cases was not selected'
-    assert all(result == TestResult.PASSED for test, result in results.items() if test not in XFAIL_TEST_CASES), \
-        'The other test cases (non fail) should be marked as PASSED'
-    assert all(results[test] == TestResult.FAILED for test in XFAIL_TEST_CASES), 'Fail test cases was not marked as failed'
+    run_pytest(pytest_options)
 
     configuration_file = DEFAULT_CONFIG_FILE
     if pytest_options == CONFIGURATION_FILE_OPTIONS:
