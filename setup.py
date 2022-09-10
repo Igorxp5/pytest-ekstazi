@@ -1,7 +1,7 @@
-__author__ = ['Igorxp5', 'vsla', 'Nielx20']
+__author__ = 'Igorxp5, vsla, Nielx20'
 
 __license__ = 'MIT'
-__version__ = '0.0.0'
+__version__ = '1.0.0'
 
 import setuptools
 
